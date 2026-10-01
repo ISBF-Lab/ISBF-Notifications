@@ -135,6 +135,25 @@ RSpec.describe IsbfNotifications::GroupsController do
     expect(entries.first.dig("notification", "post_number")).to eq(second_post.post_number)
   end
 
+  it "deduplicates reaction actors across posts while preserving the latest reaction" do
+    SiteSetting.discourse_reactions_enabled = true
+    first_post = topic_post
+    second_post = Fabricate(:post, topic: first_post.topic, user: recipient)
+    second_actor = Fabricate(:user)
+    [first_post, second_post].each_with_index do |post, index|
+      reaction = DiscourseReactions::Reaction.create!(post: post, reaction_value: "smile", reaction_type: 0)
+      DiscourseReactions::ReactionUser.create!(post: post, user: actor, reaction: reaction, created_at: (5 - index).minutes.ago)
+      notice(:reaction, post: post, at: (3 - index).minutes.ago)
+    end
+    reaction = DiscourseReactions::Reaction.find_by(post_id: first_post.id)
+    DiscourseReactions::ReactionUser.create!(post: first_post, user: second_actor, reaction: reaction, created_at: 6.minutes.ago)
+    action = groups(tab: "mentions")["groups"].first["actions"].first
+    expect(action["count"]).to eq(2)
+    entries = details(first_post, "reaction")["entries"]
+    expect(entries.map { |entry| entry.dig("actor", "id") }).to contain_exactly(actor.id, second_actor.id)
+    expect(entries.first.dig("notification", "post_number")).to eq(second_post.post_number)
+  end
+
   it "retains repeated replies and mentions from the same person in action details" do
     post = topic_post
     replies = [notice(:replied, post: post, at: 4.minutes.ago), notice(:replied, post: post, at: 2.minutes.ago)]

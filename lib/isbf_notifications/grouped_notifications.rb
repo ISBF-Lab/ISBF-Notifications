@@ -7,7 +7,7 @@ module IsbfNotifications
     ACTOR_KEYS = %i[username display_username mentioned_by_username invited_by_username original_username].freeze
 
     def initialize(user, guardian, tab: "all")
-      raise Discourse::InvalidParameters.new(:tab) unless %w[all mentions].include?(tab)
+      raise Discourse::InvalidParameters.new(:tab) if %w[all mentions].exclude?(tab)
       @user = user
       @guardian = guardian
       @tab = tab
@@ -107,7 +107,7 @@ module IsbfNotifications
     end
 
     def actors_for(records, action, offset:, limit:)
-      return [] unless %w[liked reaction].include?(action)
+      return [] if %w[liked reaction].exclude?(action)
       return [] if action == "reaction" && (!defined?(DiscourseReactions::ReactionUser) || !SiteSetting.discourse_reactions_enabled)
       sources = records.select { |notification| notification.topic_id && action_name(notification) == action }.group_by { |notification| [notification.topic_id, notification.post_number] }.filter_map do |key, items|
         post = @posts[key]
@@ -123,7 +123,7 @@ module IsbfNotifications
           SELECT DISTINCT ON (s.topic_id, a.user_id)
             s.topic_id, s.notification_id, a.user_id, a.id AS action_id, a.created_at
           FROM #{table} a
-          JOIN jsonb_to_recordset(:sources::jsonb) AS s(post_id integer, topic_id integer, notification_id integer, cutoff timestamptz)
+          JOIN jsonb_to_recordset(:sources::jsonb) AS s(post_id bigint, topic_id bigint, notification_id bigint, cutoff timestamptz)
             ON a.post_id = s.post_id
           JOIN users u ON u.id = a.user_id
           WHERE a.created_at <= s.cutoff #{conditions}
@@ -176,7 +176,11 @@ module IsbfNotifications
 
     def decode_cursor(cursor, purpose)
       values = verifier.verified(cursor, purpose: purpose)&.stringify_keys
-      unless values && values["user_id"] == @user.id && values["tab"] == @tab && (values["offset"].nil? || (values["offset"].is_a?(Integer) && values["offset"] >= 0))
+      unless values && values["user_id"] == @user.id && values["tab"] == @tab
+        raise Discourse::InvalidParameters.new(:cursor)
+      end
+      offset = values["offset"]
+      if offset && (!offset.is_a?(Integer) || offset.negative?)
         raise Discourse::InvalidParameters.new(:cursor)
       end
       values
