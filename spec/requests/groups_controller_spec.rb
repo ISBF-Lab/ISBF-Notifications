@@ -55,6 +55,7 @@ RSpec.describe IsbfNotifications::GroupsController do
 
   it "requires a signed-in user and an enabled plugin" do
     sign_out
+    reset!
     groups
     expect(response).not_to have_http_status(:ok)
 
