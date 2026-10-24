@@ -1,0 +1,53 @@
+@use "lib/container";
+
+.isbf-device-push-settings {
+  &__group {
+    align-self: stretch;
+    container-type: inline-size;
+    container-name: isbf-device-push-group;
+
+    .form-kit__field-toggle {
+      width: 100%;
+
+      @include container.until(sm, isbf-device-push-group) {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) max-content;
+        grid-template-areas:
+          "title control"
+          "description control";
+
+        .form-kit__container-title {
+          grid-area: title;
+        }
+
+        .form-kit__container-description {
+          grid-area: description;
+        }
+
+        .form-kit__container-content {
+          grid-area: control;
+          width: auto;
+        }
+      }
+    }
+  }
+
+  &__copy {
+    margin-block-end: 1em;
+    overflow-wrap: anywhere;
+  }
+
+  &__header .d-nav-submenu__tabs button {
+    padding: 0.75em;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+  }
+
+  &__header .d-nav-submenu__tabs .active button {
+    color: var(--tertiary);
+    box-shadow: 0 -2px 0 var(--tertiary) inset;
+  }
+}

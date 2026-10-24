@@ -1,0 +1,34 @@
+plugins:
+  isbf_notifications_enabled:
+    default: false
+    client: true
+  isbf_device_push_liked:
+    default: false
+    area: "device_push_events"
+  isbf_device_push_replied:
+    default: true
+    area: "device_push_events"
+  isbf_device_push_mentioned:
+    default: true
+    area: "device_push_events"
+  isbf_device_push_following:
+    default: true
+    area: "device_push_events"
+  isbf_device_push_private_message:
+    default: true
+    area: "device_push_events"
+  isbf_device_push_chat_message:
+    default: true
+    area: "device_push_events"
+  isbf_device_push_chat_mention:
+    default: true
+    area: "device_push_events"
+  isbf_device_push_topic_reminder:
+    default: false
+    area: "device_push_events"
+  isbf_device_push_scheduled_event:
+    default: true
+    area: "device_push_events"
+  isbf_device_push_calendar_changed:
+    default: false
+    area: "device_push_events"
