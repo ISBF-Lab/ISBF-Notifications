@@ -15,7 +15,7 @@ en:
         tabs:
           events: "Push events"
           copy: "Message preview"
-          other: "Other notification settings"
+          other_settings: "Other notification settings"
         groups:
           posts: "Post activity"
           messages: "Personal messages and chat"

@@ -46,7 +46,8 @@ export default class DevicePushSettings extends Component {
   @tracked formApi;
   @tracked loading = true;
   @tracked saved = false;
-  @tracked tab = this.args.outletArgs?.controller?.filter ? "other" : "events";
+  @tracked
+  tab = this.args.outletArgs?.controller?.filter ? "other_settings" : "events";
   @tracked values;
 
   constructor() {
@@ -101,7 +102,7 @@ export default class DevicePushSettings extends Component {
   }
 
   get tabs() {
-    return ["events", "copy", "other"].map((name) => ({
+    return ["events", "copy", "other_settings"].map((name) => ({
       active: name === this.tab,
       name,
       label: `isbf_notifications.push_settings.tabs.${name}`,
@@ -309,7 +310,7 @@ export default class DevicePushSettings extends Component {
           {{/each}}
         </section>
 
-        {{#if (eq this.tab "other")}}
+        {{#if (eq this.tab "other_settings")}}
           <AdminAreaSettings
             @adminSettingsFilterChangedCallback={{@outletArgs.controller.adminSettingsFilterChangedCallback}}
             @area="notifications"

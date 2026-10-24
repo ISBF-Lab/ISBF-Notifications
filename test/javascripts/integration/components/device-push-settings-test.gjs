@@ -163,7 +163,7 @@ module("Integration | Component | DevicePushSettings", function (hooks) {
     );
 
     assert
-      .dom("[data-push-tab='other']")
+      .dom("[data-push-tab='other_settings']")
       .hasAttribute(
         "aria-current",
         "page",

@@ -15,7 +15,7 @@ zh_CN:
         tabs:
           events: "推送事件"
           copy: "文案预览"
-          other: "其他通知设置"
+          other_settings: "其他通知设置"
         groups:
           posts: "帖子互动"
           messages: "私信与聊天"
