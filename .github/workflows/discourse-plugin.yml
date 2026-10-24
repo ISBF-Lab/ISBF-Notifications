@@ -1,0 +1,96 @@
+name: Discourse plugin checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: notifications-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  plugin:
+    runs-on: ubuntu-latest
+    container: discourse/discourse_test:slim-browsers
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+        working-directory: discourse
+    env:
+      RAILS_ENV: test
+      RAILS_DB: isbf_notifications_test
+      PGUSER: discourse
+      PGPASSWORD: discourse
+      LOAD_PLUGINS: 1
+      DISCOURSE_DISABLE_EMAILS: "yes"
+      DISCOURSE_SMTP_ADDRESS: ""
+      DISCOURSE_SMTP_PASSWORD: ""
+      DISCOURSE_REFRESH_MAXMIND_DB_DURING_PRECOMPILE_DAYS: 0
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          repository: ISBF-Lab/ISBFweb
+          ref: 1ede539a7c6c4c28f222e637fa3f54c810c7e895
+          path: discourse
+          fetch-depth: 1
+
+      - name: Preserve the bundled plugin before installing the candidate
+        run: |
+          test -d plugins/isbf-notifications
+          test ! -e "$RUNNER_TEMP/isbf-notifications-baseline"
+          mv plugins/isbf-notifications "$RUNNER_TEMP/isbf-notifications-baseline"
+
+      - uses: actions/checkout@v6
+        with:
+          path: discourse/plugins/isbf-notifications
+          fetch-depth: 1
+
+      - name: Cache Ruby dependencies
+        uses: actions/cache@v5
+        with:
+          path: discourse/vendor/bundle
+          key: notifications-gems-${{ runner.os }}-${{ hashFiles('discourse/Gemfile.lock') }}
+
+      - name: Install locked dependencies
+        run: |
+          bundle config --local path vendor/bundle
+          bundle config --local deployment true
+          bundle config --local without ''
+          bundle config --local with development:test
+          bundle install --jobs 4
+          pnpm install --frozen-lockfile
+
+      - name: Start isolated services
+        run: |
+          redis-server /etc/redis/redis.conf &
+          chown -R postgres /var/run/postgresql
+          sudo -E -u postgres script/start_test_db.rb
+          sudo -u postgres psql -c "CREATE ROLE $PGUSER LOGIN SUPERUSER PASSWORD '$PGPASSWORD';"
+
+      - name: Prepare the test database
+        run: |
+          bin/rake db:create
+          bin/rake db:migrate
+
+      - name: Lint the candidate plugin
+        run: bin/lint plugins/isbf-notifications
+
+      - name: Run plugin backend tests
+        run: bin/rspec plugins/isbf-notifications/spec
+
+      - name: Build the frontend
+        env:
+          EMBER_ENV: development
+          DISCOURSE_DOWNLOAD_PRE_BUILT_ASSETS: "0"
+        run: script/assemble_ember_build.rb
+
+      - name: Run plugin frontend tests
+        env:
+          QUNIT_REUSE_BUILD: 1
+        run: bin/rake plugin:qunit['isbf-notifications','1200000']
