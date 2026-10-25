@@ -1,5 +1,7 @@
 en:
   isbf_notifications:
+    android_browser_link:
+      application_name: "ISBF - One notifications (follow this browser's account)"
     invalid_badge_style: "Choose numbers or a dot for the notification badge."
     invalid_filter: "Choose all notifications or only unread notifications."
     device_push:

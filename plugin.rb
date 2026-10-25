@@ -2,7 +2,7 @@
 
 # name: isbf-notifications
 # about: Groups native notifications by topic and action.
-# version: 0.2.0
+# version: 0.3.0
 # authors: ISBF Lab
 # url: https://github.com/ISBF-Lab/ISBF-Notifications
 # required_version: 3.2.0
@@ -28,6 +28,18 @@ after_initialize do
   require_relative "lib/isbf_notifications/device_push_policy"
   require_relative "lib/isbf_notifications/device_push_extensions"
   require_relative "app/services/isbf_notifications/send_supplemental_push"
+  require_relative "lib/isbf_notifications/android_browser_link"
+  require_relative "lib/isbf_notifications/android_browser_hooks"
+  require_relative "app/services/isbf_notifications/android_browser_link/register"
+  require_relative "app/services/isbf_notifications/android_browser_link/complete"
+  require_relative "app/services/isbf_notifications/android_browser_link/synchronize"
+  require_relative "app/services/isbf_notifications/android_browser_link/read"
+  require_relative "app/services/isbf_notifications/android_browser_link/disconnect"
+  require_relative "app/controllers/isbf_notifications/android_browser_links_controller"
+
+  ::UserApiKeysController.prepend(IsbfNotifications::AndroidBrowserLink::Authorization)
+  ::Auth::DefaultCurrentUserProvider.prepend(IsbfNotifications::AndroidBrowserLink::BrowserSession)
+  Rails.application.config.filter_parameters += [:android_device_token]
 
   ::PushNotificationPusher.singleton_class.prepend(IsbfNotifications::DevicePushPusher)
   ::NotificationsController.prepend(IsbfNotifications::DevicePushNotificationsController)
@@ -121,6 +133,9 @@ after_initialize do
   end
 
   IsbfNotifications::Engine.routes.draw do
+    post "/android-browser-links" => "android_browser_links#create"
+    post "/android-browser-links/poll" => "android_browser_links#poll"
+    post "/android-browser-links/disconnect" => "android_browser_links#destroy"
     get "/groups" => "groups#index"
     get "/groups/:topic_id/actions/:notification_action" => "groups#show"
   end

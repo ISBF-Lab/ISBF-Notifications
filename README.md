@@ -16,6 +16,12 @@ Likes, reactions, topic reminders, and calendar changes use the existing `PostAl
 
 Android integration is documented in [the APK contract](docs/ANDROID_DIRECT_PUSH_CONTRACT.md). This change does not modify or build the APK; an old APK does not consume this policy.
 
+## Android browser account connection
+
+Android direct clients can connect their notification identity to one browser profile through the existing Discourse user API confirmation page. After one explicit confirmation, signing in, switching accounts, or signing out in that browser updates the device's notification grant. Other browser profiles and ordinary API clients remain independent.
+
+The connection uses a private device bearer and RSA-encrypted, narrowly scoped grants. It does not export browser cookies to the APK or alter Web Push, email, or the shared event switches. See [the browser account protocol](docs/ANDROID_BROWSER_ACCOUNT_LINK.md) for expiry, revocation, and client requirements.
+
 ## UI reference and verification
 
 The accepted grouped-toggle design and reuse scope are recorded in [the design specification](docs/design-system/push-event-settings.md). Server and browser validation must run in an isolated environment with independent PostgreSQL and Redis; never run these tests against production.

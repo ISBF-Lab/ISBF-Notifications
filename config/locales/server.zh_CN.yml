@@ -1,5 +1,7 @@
 zh_CN:
   isbf_notifications:
+    android_browser_link:
+      application_name: "ISBF - One 通知（跟随此浏览器的登录账号）"
     invalid_badge_style: "通知角标请选择数字或圆点。"
     invalid_filter: "通知筛选请选择全部或只看未读。"
     device_push:
