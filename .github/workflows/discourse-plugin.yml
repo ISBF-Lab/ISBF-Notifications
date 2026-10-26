@@ -15,7 +15,7 @@ concurrency:
 jobs:
   plugin:
     runs-on: ubuntu-latest
-    container: discourse/discourse_test:slim-browsers
+    container: discourse/discourse_test:slim-browsers@sha256:a3ee1eba8657f43552b35f2386ad30681b358f3002af48b917668b914fd93b89
     timeout-minutes: 30
     defaults:
       run:

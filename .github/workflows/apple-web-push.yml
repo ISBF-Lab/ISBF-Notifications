@@ -1,0 +1,35 @@
+name: Apple Web Push deployment checks
+
+on:
+  pull_request:
+    paths:
+      - "deploy/apple-web-push/**"
+      - ".github/workflows/apple-web-push.yml"
+  push:
+    branches: [main]
+    paths:
+      - "deploy/apple-web-push/**"
+      - ".github/workflows/apple-web-push.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  deployment:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install the YAML parser for configuration fixtures
+        run: python3 -m pip install --target "$RUNNER_TEMP/apple-push-deps" PyYAML==6.0.3
+      - name: Validate the sourceable policy
+        run: |
+          sh -n deploy/apple-web-push/env-policy.sh
+          bash -n deploy/apple-web-push/env-policy.sh
+      - name: Run all fixtures including Linux ownership guards
+        run: sudo env PYTHONPATH="$RUNNER_TEMP/apple-push-deps" "$(command -v python3)" -m unittest discover -s deploy/apple-web-push/tests -v
+      - name: Check whitespace
+        run: git diff --check
