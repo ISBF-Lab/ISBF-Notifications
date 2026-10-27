@@ -1,6 +1,7 @@
 en:
   js:
     isbf_notifications:
+      android_app_push_note: "This control does not affect Android app push notifications. The Android app uses its separate settings at startup."
       push_settings:
         title: "Device push events"
         description: "Choose which device push notifications users receive and preview their titles and messages."
