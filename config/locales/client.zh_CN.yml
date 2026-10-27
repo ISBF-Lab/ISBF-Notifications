@@ -1,6 +1,7 @@
 zh_CN:
   js:
     isbf_notifications:
+      android_app_push_note: "此按钮与安卓app的通知推送无关，安卓app依赖启动时的独立设置。"
       push_settings:
         title: "设备推送事件"
         description: "配置向用户发送哪些设备推送，以及通知中显示的标题与内容。"
