@@ -88,6 +88,18 @@ RSpec.describe PushNotificationPusher do
       expect(events).to be_empty
     end
 
+    it "uses the triggering post instead of a stale parent link for device push" do
+      parent = Fabricate(:post, topic:, user: recipient)
+      reply = Fabricate(:post, topic:, user: actor, reply_to_post_number: parent.post_number)
+      stale_payload =
+        payload.merge(post_id: reply.id, post_number: parent.post_number, post_url: parent.url)
+
+      message = described_class.push(recipient, stale_payload)
+
+      expect(message).to include(url: reply.url, title: topic.title, body: "你收到一条新回复。")
+      expect(stale_payload).to include(post_number: parent.post_number, post_url: parent.url)
+    end
+
     it "uses normal Web Push output while the plugin is disabled" do
       SiteSetting.isbf_notifications_enabled = false
 
