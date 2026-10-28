@@ -21,6 +21,17 @@ module IsbfNotifications
       event_reminder: :scheduled_event,
     }.freeze
     SUPPLEMENTAL_TYPES = %i[liked liked_consolidated reaction topic_reminder].freeze
+    POST_EVENT_TYPES = %i[
+      replied
+      posted
+      private_message
+      mentioned
+      group_mentioned
+      quoted
+      linked
+      watching_first_post
+      watching_category_or_tag
+    ].freeze
     BODY_KEYS = {
       liked: :liked,
       liked_consolidated: :liked,
@@ -51,20 +62,29 @@ module IsbfNotifications
       @entries_by_id = {}
       @entries_by_topic = {}
       @channels = {}
+      @original_posts = {}
       preload(notifications) if notifications.present?
+    end
+
+    def post_number_for(notification)
+      if POST_EVENT_TYPES.include?(Notification.types[notification.notification_type])
+        post = original_post(notification.data_hash[:original_post_id], notification.topic_id)
+      end
+      post&.post_number || notification.post_number
     end
 
     def payload_for(notification)
       data = notification.data_hash
+      post_number = post_number_for(notification)
       {
         notification_type: notification.notification_type,
         topic_id: notification.topic_id,
         topic_title: notification.topic&.title.presence || data[:topic_title],
-        post_number: notification.post_number,
+        post_number: post_number,
         post_url:
           (
             if notification.topic_id
-              "/t/#{notification.topic_id}/#{notification.post_number || 1}"
+              "/t/#{notification.topic_id}/#{post_number || 1}"
             else
               "/my/notifications"
             end
@@ -125,6 +145,10 @@ module IsbfNotifications
     end
 
     def web_payload(payload)
+      if POST_EVENT_TYPES.include?(Notification.types[payload[:notification_type]]) &&
+           (post = original_post(payload[:post_id], payload[:topic_id]))
+        payload = payload.merge(post_number: post.post_number, post_url: post.url)
+      end
       I18n.with_locale(@user.effective_locale) do
         payload.merge(translated_title: title(payload), excerpt: body(payload))
       end
@@ -132,18 +156,35 @@ module IsbfNotifications
 
     private
 
+    def original_post(post_id, topic_id)
+      post_id = post_id.to_i
+      return unless post_id.positive? && topic_id
+
+      post =
+        @original_posts.fetch(post_id) do
+          @original_posts[post_id] = Post.includes(:topic).find_by(id: post_id)
+        end
+      post if post&.topic_id == topic_id && @user.guardian.can_see?(post)
+    end
+
     def preload(notifications)
       calendar_ids = []
       topic_ids = []
       channel_ids = []
+      original_post_ids = []
       notifications.each do |notification|
         data = notification.data_hash
+        if POST_EVENT_TYPES.include?(Notification.types[notification.notification_type])
+          original_post_ids << data[:original_post_id].to_i
+        end
         calendar_ids << data[:entry_id] if self.class.calendar_change?(data)
         if notification.notification_type == Notification.types[:event_reminder]
           topic_ids << notification.topic_id
         end
         channel_ids << data[:chat_channel_id] if data[:chat_channel_id]
       end
+      original_posts = Post.includes(:topic).where(id: original_post_ids).index_by(&:id)
+      @original_posts = original_post_ids.index_with { |post_id| original_posts[post_id] }
       if defined?(::IsbfCalendar::Entry)
         entries_by_id =
           ::IsbfCalendar::Entry
