@@ -13,6 +13,18 @@ module IsbfNotifications
     end
   end
 
+  module CalendarReminderDelivery
+    def execute(args)
+      payload = (args[:payload] || {}).with_indifferent_access
+      if DevicePushPolicy.calendar_reminder_payload?(payload)
+        user = User.find_by(id: args[:user_id])
+        return unless SiteSetting.isbf_notifications_enabled && user && !user.do_not_disturb?
+        return unless DevicePushPolicy.new(user).enabled?(payload, web_push: true)
+      end
+      super
+    end
+  end
+
   module DevicePushNotificationsController
     def serialize_data(objects, serializer, options = nil)
       if SiteSetting.isbf_notifications_enabled && serializer == NotificationSerializer &&

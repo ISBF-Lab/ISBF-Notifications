@@ -14,8 +14,17 @@ concurrency:
 
 jobs:
   plugin:
+    name: Plugin checks (${{ matrix.baseline }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - baseline: integration
+            ref: 1ede539a7c6c4c28f222e637fa3f54c810c7e895
+          - baseline: published-core
+            ref: 132cc95d043db01251eedf9c93b3927cd5ffee91
     runs-on: ubuntu-latest
-    container: discourse/discourse_test:slim-browsers@sha256:a3ee1eba8657f43552b35f2386ad30681b358f3002af48b917668b914fd93b89
+    container: discourse/discourse_test@sha256:94eca5318fed6171264b95204914de76a113c305cebb72d9fa9527e2c4496494
     timeout-minutes: 30
     defaults:
       run:
@@ -36,7 +45,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           repository: ISBF-Lab/ISBFweb
-          ref: 1ede539a7c6c4c28f222e637fa3f54c810c7e895
+          ref: ${{ matrix.ref }}
           path: discourse
           fetch-depth: 1
 
@@ -50,6 +59,21 @@ jobs:
         with:
           path: discourse/plugins/isbf-notifications
           fetch-depth: 1
+
+      - uses: actions/checkout@v6
+        with:
+          repository: ISBF-Lab/ISBF-Calendar
+          ref: 68ed219ba8688d78dfbd1c032eeb2bc904ad229a
+          path: calendar-plugin
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Load the published calendar plugin without changing dependency snapshots
+        run: |
+          test -d plugins/isbf-calendar
+          test ! -e "$RUNNER_TEMP/isbf-calendar-baseline"
+          mv plugins/isbf-calendar "$RUNNER_TEMP/isbf-calendar-baseline"
+          cp -a ../calendar-plugin plugins/isbf-calendar
 
       - name: Cache Ruby dependencies
         uses: actions/cache@v5
@@ -94,3 +118,14 @@ jobs:
         env:
           QUNIT_REUSE_BUILD: 1
         run: bin/rake plugin:qunit['isbf-notifications','1200000']
+
+      - uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: notifications-${{ matrix.baseline }}-${{ github.run_id }}
+          path: |
+            discourse/log/test.log
+            discourse/tmp/rspec*
+            discourse/tmp/qunit*
+          if-no-files-found: ignore
+          retention-days: 14

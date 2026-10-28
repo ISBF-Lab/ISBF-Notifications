@@ -38,7 +38,9 @@ module IsbfNotifications
 
     def enqueue_push(notification:)
       policy = DevicePushPolicy.new(notification.user)
-      PostAlerter.push_notification(notification.user, policy.payload_for(notification))
+      payload = policy.payload_for(notification)
+      payload = policy.web_payload(payload) if DevicePushPolicy.calendar_reminder?(notification)
+      PostAlerter.push_notification(notification.user, payload)
     end
   end
 end

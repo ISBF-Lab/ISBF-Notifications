@@ -10,7 +10,13 @@ Requires the matching Core `admin-notification-settings` wrapper outlet. Without
 
 The switches filter Web Push at the final `PushNotificationPusher` boundary, including already queued deliveries. They do not register the shared `push_notification_filters` hook because that hook also controls in-site live alerts. In-site notification creation, unread state, live alerts, email, reminder schedules, and existing delivery transports remain unchanged.
 
-Likes, reactions, topic reminders, and calendar changes use the existing `PostAlerter` and delivery job when their corresponding switch permits sending. Event reminders require a currently visible activity that the recipient added to their personal schedule. Schedule changes are restricted to the recipient's own entry, including cancellation notices.
+Likes, reactions, topic reminders, calendar advance reminders, and calendar changes use the existing `PostAlerter` and delivery job when their corresponding switch permits sending. Event reminders require a currently visible activity that the recipient added to their personal schedule. Schedule changes are restricted to the recipient's own entry, including cancellation notices.
+
+Calendar advance reminders use the existing **Scheduled events** switch and the native Web Push/Hub delivery job. The actual ISBF-Calendar reminder processor selects the channel first: entries already delivered to a verified calendar subscription do not create an in-site reminder and therefore do not create a second device push. In-site reminders retain their unread state and email suppression. Notification data updates do not send another reminder.
+
+Queued calendar reminders are bound to the owner's entry, reminder generation, trigger time, and notification. Delivery checks the current unread record, recipient eligibility, source visibility/cancellation, reminder settings, and ten-minute catch-up window again. Rescheduling, removing the entry, disabling reminders, or reading the notice prevents stale delivery. Titles use sanitized entry names; push bodies omit notes and locations. The link opens `/isbf/calendar?entry_id=…`, and each reminder generation has a separate notification tag.
+
+Native do-not-disturb, activity-based delay, push subscriptions, browser permission, and operating-system notification settings still apply. This integration does not promise immediate lock-screen delivery and does not change Apple Calendar refresh behavior.
 
 `GET /notifications.json?device_push=true` adds versioned `isbf_device_push` metadata to each authorized notification. It retains every row and the existing pagination and read state so clients can advance their cursor across suppressed events. The ordinary endpoint remains unchanged. Metadata preparation batches schedule and chat associations for each page.
 
