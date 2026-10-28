@@ -48,6 +48,11 @@ after_initialize do
   end
   ::NotificationsController.prepend(IsbfNotifications::DevicePushNotificationsController)
 
+  add_to_serializer(:notification, :post_number) do
+    policy = @options[:isbf_device_push_policy]
+    policy ? policy.post_number_for(object) : object.post_number
+  end
+
   add_to_serializer(
     :notification,
     :isbf_device_push,
