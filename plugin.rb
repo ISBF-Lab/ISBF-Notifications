@@ -25,6 +25,7 @@ after_initialize do
     end
   end
   require_relative "lib/isbf_notifications/grouped_notifications"
+  require_relative "lib/isbf_notifications/calendar_reminder_push"
   require_relative "lib/isbf_notifications/device_push_policy"
   require_relative "lib/isbf_notifications/device_push_extensions"
   require_relative "app/services/isbf_notifications/send_supplemental_push"
@@ -42,6 +43,9 @@ after_initialize do
   Rails.application.config.filter_parameters += [:android_device_token]
 
   ::PushNotificationPusher.singleton_class.prepend(IsbfNotifications::DevicePushPusher)
+  reloadable_patch do
+    ::Jobs::DeliverPushNotification.prepend(IsbfNotifications::CalendarReminderDelivery)
+  end
   ::NotificationsController.prepend(IsbfNotifications::DevicePushNotificationsController)
 
   add_to_serializer(
@@ -62,6 +66,7 @@ after_initialize do
 
   add_model_callback(:notification, :after_update_commit) do
     if SiteSetting.isbf_notifications_enabled && saved_change_to_data? &&
+         !IsbfNotifications::DevicePushPolicy.calendar_reminder?(self) &&
          IsbfNotifications::DevicePushPolicy.supplemental?(self)
       IsbfNotifications::SendSupplementalPush.call(params: { notification_id: id })
     end

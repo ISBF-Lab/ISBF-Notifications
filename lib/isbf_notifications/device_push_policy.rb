@@ -39,7 +39,21 @@ module IsbfNotifications
 
     def self.supplemental?(notification)
       SUPPLEMENTAL_TYPES.include?(Notification.types[notification.notification_type]) ||
-        calendar_change?(notification.data_hash)
+        calendar_change?(notification.data_hash) || calendar_reminder?(notification)
+    end
+
+    def self.calendar_reminder?(notification)
+      notification.notification_type == Notification.types[:custom] &&
+        calendar_reminder_payload?(
+          notification_type: notification.notification_type,
+          notification_data: notification.data_hash,
+        )
+    end
+
+    def self.calendar_reminder_payload?(payload)
+      payload[:notification_type] == Notification.types[:custom] &&
+        payload[:notification_data].is_a?(Hash) &&
+        payload[:notification_data][:message] == "isbf_calendar.reminder"
     end
 
     def self.calendar_change?(data)
@@ -51,12 +65,13 @@ module IsbfNotifications
       @entries_by_id = {}
       @entries_by_topic = {}
       @channels = {}
+      @reminder_notifications = notifications.index_by(&:id)
       preload(notifications) if notifications.present?
     end
 
     def payload_for(notification)
       data = notification.data_hash
-      {
+      payload = {
         notification_type: notification.notification_type,
         topic_id: notification.topic_id,
         topic_title: notification.topic&.title.presence || data[:topic_title],
@@ -72,10 +87,46 @@ module IsbfNotifications
         channel_id: data[:chat_channel_id],
         notification_data: data,
       }
+      if self.class.calendar_reminder?(notification)
+        @reminder_notifications[notification.id] = notification
+        entry = calendar_entry(payload)
+        snapshot = CalendarReminderPush.snapshot(notification, entry)
+        payload[:isbf_calendar_reminder] = snapshot
+        if snapshot
+          payload[:post_url] = "/isbf/calendar?entry_id=#{entry.id}"
+          payload[:tag] = [
+            Discourse.current_hostname,
+            "calendar-reminder",
+            entry.id,
+            snapshot[:generation],
+          ].join("-")
+        end
+      end
+      payload
     end
 
     def enabled?(payload, web_push: false)
       return true unless SiteSetting.isbf_notifications_enabled
+
+      if self.class.calendar_reminder_payload?(payload)
+        snapshot = payload[:isbf_calendar_reminder]
+        notice =
+          (
+            if snapshot.is_a?(Hash)
+              @reminder_notifications[snapshot[:notification_id]]
+            else
+              nil
+            end
+          )
+        return(
+          CalendarReminderPush.enabled?(
+            @user,
+            payload,
+            calendar_entry(payload),
+            notification: notice,
+          )
+        )
+      end
 
       type = Notification.types[payload[:notification_type]]
       setting =
@@ -138,7 +189,9 @@ module IsbfNotifications
       channel_ids = []
       notifications.each do |notification|
         data = notification.data_hash
-        calendar_ids << data[:entry_id] if self.class.calendar_change?(data)
+        if self.class.calendar_change?(data) || self.class.calendar_reminder?(notification)
+          calendar_ids << data[:entry_id]
+        end
         if notification.notification_type == Notification.types[:event_reminder]
           topic_ids << notification.topic_id
         end
@@ -195,7 +248,9 @@ module IsbfNotifications
     end
 
     def calendar_entry(payload)
-      entry_id = (payload[:notification_data] || {})[:entry_id].to_i
+      value = (payload[:notification_data] || {})[:entry_id]
+      entry_id = Integer(value.to_s, exception: false)
+      return unless entry_id&.positive?
       @entries_by_id.fetch(entry_id) do
         @entries_by_id[entry_id] = if defined?(::IsbfCalendar::Entry)
           ::IsbfCalendar::Entry
@@ -208,7 +263,9 @@ module IsbfNotifications
 
     def title(payload)
       value =
-        if self.class.calendar_change?(payload[:notification_data] || {})
+        if self.class.calendar_reminder_payload?(payload)
+          calendar_entry(payload)&.title
+        elsif self.class.calendar_change?(payload[:notification_data] || {})
           entry = calendar_entry(payload)
           if entry&.source_item&.visible_to?(@user.guardian)
             entry.source_item.topic.title.presence || entry.title
@@ -233,7 +290,9 @@ module IsbfNotifications
     def body(payload)
       type = Notification.types[payload[:notification_type]]
       key = BODY_KEYS[type]
-      if self.class.calendar_change?(payload[:notification_data] || {})
+      if self.class.calendar_reminder_payload?(payload)
+        key = :calendar_reminder
+      elsif self.class.calendar_change?(payload[:notification_data] || {})
         key =
           calendar_entry(payload)&.source_item&.cancelled? ? :calendar_cancelled : :calendar_changed
       elsif type == :event_reminder
